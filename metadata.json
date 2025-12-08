@@ -1,0 +1,5 @@
+{
+  "name": "SaadPOS Sim",
+  "description": "A simulation Point of Sale system for pharmacies featuring AI-powered coupon configuration, barcode generation, inventory management via CSV, and redemption reporting.",
+  "requestFramePermissions": []
+}
