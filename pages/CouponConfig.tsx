@@ -898,7 +898,7 @@ const CouponConfig: React.FC = () => {
                  <select 
                     value={formData.compensationType} 
                     onChange={e => setFormData({...formData, compensationType: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border-2 border-indigo-100 focus:border-indigo-500 rounded-lg text-sm bg-white text-slate-800 font-medium outline-none transition-colors"
                  >
                      <option value="VENDOR_CLAIM">100% Vendor Claim</option>
                      <option value="MEP_CLAIM">100% Store (MEP)</option>
@@ -906,14 +906,24 @@ const CouponConfig: React.FC = () => {
                  </select>
                  
                  {formData.compensationType === 'PARTNERSHIP' && (
-                     <div className="grid grid-cols-2 gap-4 bg-indigo-50 p-3 rounded-lg">
+                     <div className="grid grid-cols-2 gap-4 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
                          <div>
-                             <label className="text-xs font-bold text-indigo-700">Vendor Share (%)</label>
-                             <input type="number" value={formData.partnershipVendorPercent} onChange={e => setFormData({...formData, partnershipVendorPercent: Number(e.target.value)})} className="w-full px-2 py-1 border border-indigo-200 rounded text-sm" />
+                             <label className="text-xs font-bold text-indigo-700 mb-1 block">Vendor Share (%)</label>
+                             <input 
+                                type="number" 
+                                value={formData.partnershipVendorPercent} 
+                                onChange={e => setFormData({...formData, partnershipVendorPercent: Number(e.target.value)})} 
+                                className="w-full px-3 py-2 bg-white border-2 border-indigo-200 rounded-lg text-sm focus:border-indigo-500 outline-none font-bold text-slate-700" 
+                             />
                          </div>
                          <div>
-                             <label className="text-xs font-bold text-indigo-700">Store Share (%)</label>
-                             <input type="number" value={formData.partnershipMepPercent} onChange={e => setFormData({...formData, partnershipMepPercent: Number(e.target.value)})} className="w-full px-2 py-1 border border-indigo-200 rounded text-sm" />
+                             <label className="text-xs font-bold text-indigo-700 mb-1 block">Store Share (%)</label>
+                             <input 
+                                type="number" 
+                                value={formData.partnershipMepPercent} 
+                                onChange={e => setFormData({...formData, partnershipMepPercent: Number(e.target.value)})} 
+                                className="w-full px-3 py-2 bg-white border-2 border-indigo-200 rounded-lg text-sm focus:border-indigo-500 outline-none font-bold text-slate-700" 
+                             />
                          </div>
                      </div>
                  )}
