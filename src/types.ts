@@ -20,6 +20,12 @@ export enum DiscountType {
 
 export type StackingStrategy = 'SUM' | 'MAX' | 'MIN';
 
+export interface CustomerGroup {
+  id: string;
+  name: string;
+  numbers: string[];
+}
+
 export interface Coupon {
   id: string;
   code: string;
@@ -89,6 +95,8 @@ export interface StoreContextType {
   transactions: Transaction[];
   addTransaction: (transaction: Transaction) => void;
   importItemsFromCSV: (csvContent: string) => void;
+  customerGroups: CustomerGroup[];
+  setCustomerGroups: React.Dispatch<React.SetStateAction<CustomerGroup[]>>;
 }
 
 export const StoreContext = createContext<StoreContextType>({} as StoreContextType);

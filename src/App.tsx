@@ -6,7 +6,7 @@ import Inventory from './pages/Inventory';
 import CouponConfig from './pages/CouponConfig';
 import Reports from './pages/Reports';
 import Help from './pages/Help';
-import { Item, Coupon, Transaction, StoreContext } from './types';
+import { Item, Coupon, Transaction, StoreContext, CustomerGroup } from './types';
 import { INITIAL_ITEMS, INITIAL_COUPONS } from './constants';
 
 const App: React.FC = () => {
@@ -26,6 +26,11 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>(() => {
+    const saved = localStorage.getItem('pharma_groups');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Persist state changes
   useEffect(() => {
     localStorage.setItem('pharma_items', JSON.stringify(items));
@@ -38,6 +43,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('pharma_transactions', JSON.stringify(transactions));
   }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('pharma_groups', JSON.stringify(customerGroups));
+  }, [customerGroups]);
 
   const addTransaction = (t: Transaction) => {
     const updatedTransactions = [...transactions, t];
@@ -121,7 +130,8 @@ const App: React.FC = () => {
       items, setItems, 
       coupons, setCoupons, 
       transactions, addTransaction,
-      importItemsFromCSV 
+      importItemsFromCSV,
+      customerGroups, setCustomerGroups
     }}>
       <HashRouter>
         <Layout>

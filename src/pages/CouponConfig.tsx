@@ -2,10 +2,10 @@ import React, { useState, useContext, useMemo } from 'react';
 import { StoreContext } from '../types';
 import { Coupon, DiscountType, Item, StackingStrategy } from '../types';
 import BarcodeDisplay from '../components/BarcodeDisplay';
-import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2, Power, XSquare, AlertCircle, Users, Copy, ExternalLink, X } from 'lucide-react';
+import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2, Power, Users, Copy, ExternalLink, X, Save, UserPlus, CheckCircle } from 'lucide-react';
 
 const CouponConfig: React.FC = () => {
-  const { coupons, setCoupons, items } = useContext(StoreContext);
+  const { coupons, setCoupons, items, customerGroups, setCustomerGroups } = useContext(StoreContext);
 
   // New state for bulk generation
   const [quantity, setQuantity] = useState(1);
@@ -24,7 +24,12 @@ const CouponConfig: React.FC = () => {
   const [bulkShareModalOpen, setBulkShareModalOpen] = useState(false);
   const [currentBulkCoupon, setCurrentBulkCoupon] = useState<Coupon | null>(null);
   const [customerNumbers, setCustomerNumbers] = useState<string[]>([]);
+  const [sentStatus, setSentStatus] = useState<Record<string, boolean>>({}); // Track sent status per session
   const [imageCopied, setImageCopied] = useState(false);
+  
+  // Group Management State
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
 
   // Helper to get today's date formatted for input
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -406,7 +411,25 @@ const CouponConfig: React.FC = () => {
     event.target.value = '';
   };
 
-  // --- Bulk WhatsApp Customer Import ---
+  // --- Bulk WhatsApp Customer Import & Group Management ---
+
+  const parseNumbers = (content: string) => {
+      const lines = content.split('\n');
+      const numbers: string[] = [];
+      const phoneRegex = /\d{7,}/;
+
+      lines.forEach(line => {
+          const cols = line.split(',');
+          for(const col of cols) {
+              const clean = col.replace(/[^0-9+]/g, '');
+              if(phoneRegex.test(clean)) {
+                  numbers.push(clean);
+                  break;
+              }
+          }
+      });
+      return [...new Set(numbers)];
+  };
 
   const handleCustomerCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -416,30 +439,61 @@ const CouponConfig: React.FC = () => {
       reader.onload = (e) => {
           const content = e.target?.result as string;
           if (content) {
-              const lines = content.split('\n');
-              const numbers: string[] = [];
-              // Simple regex for phone numbers (at least 7 digits)
-              const phoneRegex = /\d{7,}/;
-
-              lines.forEach(line => {
-                  // Assuming CSV could be single column or multi-column
-                  // If multi-column, try to find the one that looks like a phone number
-                  const cols = line.split(',');
-                  for(const col of cols) {
-                      const clean = col.replace(/[^0-9+]/g, ''); // Keep only numbers and +
-                      if(phoneRegex.test(clean)) {
-                          numbers.push(clean);
-                          break; // Found a number in this row, move to next
-                      }
-                  }
-              });
-              
-              const uniqueNumbers = [...new Set(numbers)]; // Remove duplicates
+              const uniqueNumbers = parseNumbers(content);
               setCustomerNumbers(uniqueNumbers);
+              // Reset sent status for new import
+              setSentStatus({});
+              // If previously selected a group, unselect it as we are in "custom import" mode
+              setSelectedGroupId('');
           }
       };
       reader.readAsText(file);
       event.target.value = '';
+  };
+
+  const handleSaveGroup = () => {
+      if(!newGroupName.trim()) {
+          alert('Please enter a group name');
+          return;
+      }
+      if(customerNumbers.length === 0) {
+          alert('No numbers to save!');
+          return;
+      }
+
+      const newGroup = {
+          id: Date.now().toString(),
+          name: newGroupName,
+          numbers: [...customerNumbers]
+      };
+      
+      setCustomerGroups(prev => [...prev, newGroup]);
+      setNewGroupName('');
+      alert(`Group "${newGroup.name}" saved with ${newGroup.numbers.length} numbers.`);
+  };
+
+  const handleSelectGroup = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const groupId = e.target.value;
+      setSelectedGroupId(groupId);
+      if(groupId) {
+          const group = customerGroups.find(g => g.id === groupId);
+          if(group) {
+              setCustomerNumbers(group.numbers);
+              setSentStatus({});
+          }
+      } else {
+          setCustomerNumbers([]);
+      }
+  };
+
+  const deleteGroup = (id: string) => {
+      if(confirm('Delete this group?')) {
+          setCustomerGroups(prev => prev.filter(g => g.id !== id));
+          if(selectedGroupId === id) {
+              setSelectedGroupId('');
+              setCustomerNumbers([]);
+          }
+      }
   };
 
   const copyImageForBulk = async () => {
@@ -462,8 +516,14 @@ const CouponConfig: React.FC = () => {
 
   const openBulkShareModal = (coupon: Coupon) => {
       setCurrentBulkCoupon(coupon);
-      setCustomerNumbers([]); // Reset numbers
+      setCustomerNumbers([]);
+      setSentStatus({});
+      setSelectedGroupId('');
       setBulkShareModalOpen(true);
+  };
+
+  const markAsSent = (num: string) => {
+      setSentStatus(prev => ({...prev, [num]: true}));
   };
 
   // --- Sharing & Download Logic ---
@@ -1356,43 +1416,92 @@ const CouponConfig: React.FC = () => {
                   {/* Modal Content */}
                   <div className="p-6 space-y-6 flex-1 overflow-y-auto">
                       
-                      {/* Step 1: Upload */}
+                      {/* Step 1: Select List or Upload */}
                       <div className="space-y-3">
                           <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                               <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs">1</span>
-                              Import Numbers (CSV)
+                              Choose Recipient List
                           </label>
-                          <div className="flex gap-4 items-center">
-                              <label className="flex-1 border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors">
-                                  <Upload size={20} className="text-slate-400" />
-                                  <span className="text-sm font-medium text-slate-600">Click to upload .csv file</span>
-                                  <span className="text-xs text-slate-400">Column should contain phone numbers</span>
-                                  <input type="file" accept=".csv" className="hidden" onChange={handleCustomerCSVImport} />
-                              </label>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Option A: Saved Groups */}
+                              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 hover:bg-white hover:shadow-sm transition-all">
+                                  <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Load Saved Group</label>
+                                  <div className="flex gap-2">
+                                      <select 
+                                        value={selectedGroupId} 
+                                        onChange={handleSelectGroup}
+                                        className="flex-1 p-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-green-500"
+                                      >
+                                          <option value="">-- Select Group --</option>
+                                          {customerGroups.map(g => (
+                                              <option key={g.id} value={g.id}>{g.name} ({g.numbers.length})</option>
+                                          ))}
+                                      </select>
+                                      {selectedGroupId && (
+                                          <button 
+                                            onClick={() => deleteGroup(selectedGroupId)}
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                            title="Delete Group"
+                                          >
+                                              <Trash2 size={16} />
+                                          </button>
+                                      )}
+                                  </div>
+                              </div>
+
+                              {/* Option B: Upload New */}
+                              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 hover:bg-white hover:shadow-sm transition-all flex items-center justify-center">
+                                  <label className="flex flex-col items-center gap-1 cursor-pointer w-full text-center">
+                                      <Upload size={20} className="text-indigo-500" />
+                                      <span className="text-sm font-bold text-slate-700">Upload CSV</span>
+                                      <span className="text-[10px] text-slate-400">or browse files</span>
+                                      <input type="file" accept=".csv" className="hidden" onChange={handleCustomerCSVImport} />
+                                  </label>
+                              </div>
                           </div>
                       </div>
+
+                      {/* Add current list to groups (if not already from group) */}
+                      {customerNumbers.length > 0 && !selectedGroupId && (
+                          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                              <UserPlus size={16} className="text-blue-600" />
+                              <input 
+                                type="text" 
+                                placeholder="Enter name to save this list..." 
+                                value={newGroupName}
+                                onChange={(e) => setNewGroupName(e.target.value)}
+                                className="flex-1 bg-white border border-blue-200 rounded px-2 py-1 text-sm outline-none"
+                              />
+                              <button 
+                                onClick={handleSaveGroup}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors"
+                              >
+                                  Save Group
+                              </button>
+                          </div>
+                      )}
 
                       {/* Step 2: Copy Image */}
                       {customerNumbers.length > 0 && (
                           <div className="space-y-3 animate-in slide-in-from-top-4 fade-in duration-300">
                               <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                   <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs">2</span>
-                                  Copy Image to Clipboard
+                                  Copy Image (One-Time)
                               </label>
-                              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start gap-3">
-                                  <AlertCircle size={20} className="text-orange-600 shrink-0 mt-0.5" />
+                              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-center gap-4">
                                   <div className="flex-1">
-                                      <p className="text-sm text-orange-800 mb-3">
-                                          WhatsApp Web does not allow auto-attaching images. You must copy the image here, click "Send" below, and then <span className="font-bold">Paste (Ctrl+V)</span> it into the chat manually.
-                                      </p>
                                       <button 
                                           onClick={copyImageForBulk}
-                                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${imageCopied ? 'bg-green-600 text-white' : 'bg-white border border-orange-200 text-orange-700 hover:bg-orange-100'}`}
+                                          className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-bold text-sm transition-all ${imageCopied ? 'bg-green-600 text-white shadow-green-200 shadow-lg' : 'bg-white border-2 border-orange-200 text-orange-700 hover:bg-orange-100'}`}
                                       >
-                                          {imageCopied ? <CheckSquare size={16}/> : <Copy size={16} />}
-                                          {imageCopied ? 'Image Copied!' : 'Copy Coupon Image'}
+                                          {imageCopied ? <CheckSquare size={18}/> : <Copy size={18} />}
+                                          {imageCopied ? 'Image Copied!' : 'Copy Coupon Image to Clipboard'}
                                       </button>
                                   </div>
+                                  <p className="text-xs text-orange-800 max-w-[200px]">
+                                      <b>Tip:</b> Copy once. Then paste (Ctrl+V) into each chat opened below.
+                                  </p>
                               </div>
                           </div>
                       )}
@@ -1403,35 +1512,45 @@ const CouponConfig: React.FC = () => {
                               <div className="flex justify-between items-center">
                                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                       <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs">3</span>
-                                      Send Messages ({customerNumbers.length})
+                                      Process List ({Object.keys(sentStatus).length}/{customerNumbers.length} Sent)
                                   </label>
-                                  <button onClick={() => setCustomerNumbers([])} className="text-xs text-red-500 hover:underline">Clear List</button>
+                                  <button onClick={() => {setCustomerNumbers([]); setSelectedGroupId('');}} className="text-xs text-red-500 hover:underline">Clear List</button>
                               </div>
                               
                               <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
                                   <table className="w-full text-left text-sm">
-                                      <thead className="bg-slate-100 text-slate-500 font-semibold border-b border-slate-200">
+                                      <thead className="bg-slate-100 text-slate-500 font-semibold border-b border-slate-200 sticky top-0">
                                           <tr>
+                                              <th className="p-3 w-10">Status</th>
                                               <th className="p-3">Phone Number</th>
                                               <th className="p-3 text-right">Action</th>
                                           </tr>
                                       </thead>
                                       <tbody className="divide-y divide-slate-100">
-                                          {customerNumbers.map((num, idx) => (
-                                              <tr key={idx} className="hover:bg-white transition-colors">
-                                                  <td className="p-3 font-mono text-slate-700">{num}</td>
+                                          {customerNumbers.map((num, idx) => {
+                                              const isSent = sentStatus[num];
+                                              return (
+                                              <tr key={idx} className={`transition-colors ${isSent ? 'bg-green-50' : 'hover:bg-white'}`}>
+                                                  <td className="p-3 text-center">
+                                                      {isSent ? <CheckCircle size={16} className="text-green-600 inline"/> : <div className="w-4 h-4 rounded-full border-2 border-slate-300 inline-block"></div>}
+                                                  </td>
+                                                  <td className={`p-3 font-mono ${isSent ? 'text-green-800 font-medium' : 'text-slate-700'}`}>
+                                                      {num}
+                                                  </td>
                                                   <td className="p-3 text-right">
                                                       <a 
                                                           href={`https://wa.me/${num}?text=${encodeURIComponent(getShareText(currentBulkCoupon))}`}
                                                           target="_blank"
                                                           rel="noreferrer"
-                                                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded text-xs font-bold transition-colors"
+                                                          onClick={() => markAsSent(num)}
+                                                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold transition-colors ${isSent ? 'bg-slate-200 text-slate-500' : 'bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-sm'}`}
                                                       >
-                                                          Open Chat <ExternalLink size={12} />
+                                                          {isSent ? 'Resend' : 'Open Chat'} <ExternalLink size={12} />
                                                       </a>
                                                   </td>
                                               </tr>
-                                          ))}
+                                              );
+                                          })}
                                       </tbody>
                                   </table>
                               </div>
