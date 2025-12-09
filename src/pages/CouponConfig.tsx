@@ -2,7 +2,7 @@ import React, { useState, useContext, useMemo } from 'react';
 import { StoreContext } from '../types';
 import { Coupon, DiscountType, Item, StackingStrategy } from '../types';
 import BarcodeDisplay from '../components/BarcodeDisplay';
-import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2, Power, XSquare, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2, Power, XSquare, AlertCircle, Users, Copy, ExternalLink, X } from 'lucide-react';
 
 const CouponConfig: React.FC = () => {
   const { coupons, setCoupons, items } = useContext(StoreContext);
@@ -19,6 +19,12 @@ const CouponConfig: React.FC = () => {
 
   // State for expanded brands in item selection
   const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
+
+  // --- BULK WHATSAPP STATE ---
+  const [bulkShareModalOpen, setBulkShareModalOpen] = useState(false);
+  const [currentBulkCoupon, setCurrentBulkCoupon] = useState<Coupon | null>(null);
+  const [customerNumbers, setCustomerNumbers] = useState<string[]>([]);
+  const [imageCopied, setImageCopied] = useState(false);
 
   // Helper to get today's date formatted for input
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -398,6 +404,66 @@ const CouponConfig: React.FC = () => {
     reader.readAsText(file);
     // Reset input
     event.target.value = '';
+  };
+
+  // --- Bulk WhatsApp Customer Import ---
+
+  const handleCustomerCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          const content = e.target?.result as string;
+          if (content) {
+              const lines = content.split('\n');
+              const numbers: string[] = [];
+              // Simple regex for phone numbers (at least 7 digits)
+              const phoneRegex = /\d{7,}/;
+
+              lines.forEach(line => {
+                  // Assuming CSV could be single column or multi-column
+                  // If multi-column, try to find the one that looks like a phone number
+                  const cols = line.split(',');
+                  for(const col of cols) {
+                      const clean = col.replace(/[^0-9+]/g, ''); // Keep only numbers and +
+                      if(phoneRegex.test(clean)) {
+                          numbers.push(clean);
+                          break; // Found a number in this row, move to next
+                      }
+                  }
+              });
+              
+              const uniqueNumbers = [...new Set(numbers)]; // Remove duplicates
+              setCustomerNumbers(uniqueNumbers);
+          }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+  };
+
+  const copyImageForBulk = async () => {
+      if(!currentBulkCoupon) return;
+      const canvas = generateCanvas(currentBulkCoupon);
+      if(!canvas) return;
+
+      canvas.toBlob(async (blob) => {
+          if(!blob) return;
+          try {
+              const item = new ClipboardItem({ [blob.type]: blob });
+              await navigator.clipboard.write([item]);
+              setImageCopied(true);
+              setTimeout(() => setImageCopied(false), 3000);
+          } catch (err) {
+              alert("Failed to copy image automatically. Browser may block it.");
+          }
+      }, 'image/png');
+  };
+
+  const openBulkShareModal = (coupon: Coupon) => {
+      setCurrentBulkCoupon(coupon);
+      setCustomerNumbers([]); // Reset numbers
+      setBulkShareModalOpen(true);
   };
 
   // --- Sharing & Download Logic ---
@@ -1216,6 +1282,12 @@ const CouponConfig: React.FC = () => {
                                                 <Share2 size={14} /> WhatsApp
                                             </button>
                                             <button 
+                                                onClick={() => openBulkShareModal(coupon)}
+                                                className="flex items-center gap-1 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white border border-transparent rounded text-xs font-bold transition-colors"
+                                            >
+                                                <Users size={14} /> Bulk WA
+                                            </button>
+                                            <button 
                                                 onClick={() => shareSMS(coupon)}
                                                 className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white border border-transparent rounded text-xs font-bold transition-colors"
                                             >
@@ -1257,6 +1329,118 @@ const CouponConfig: React.FC = () => {
            </div>
         </div>
       </div>
+
+      {/* BULK WHATSAPP MODAL */}
+      {bulkShareModalOpen && currentBulkCoupon && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+                  {/* Modal Header */}
+                  <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                      <div className="flex items-center gap-3">
+                          <div className="p-2 bg-[#25D366] text-white rounded-lg">
+                              <Users size={24} />
+                          </div>
+                          <div>
+                              <h3 className="text-xl font-bold text-slate-800">Bulk WhatsApp Sender</h3>
+                              <p className="text-sm text-slate-500">Share coupon <span className="font-mono font-bold text-slate-700">{currentBulkCoupon.code}</span> with multiple customers</p>
+                          </div>
+                      </div>
+                      <button 
+                          onClick={() => setBulkShareModalOpen(false)}
+                          className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+                      >
+                          <X size={20} />
+                      </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+                      
+                      {/* Step 1: Upload */}
+                      <div className="space-y-3">
+                          <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs">1</span>
+                              Import Numbers (CSV)
+                          </label>
+                          <div className="flex gap-4 items-center">
+                              <label className="flex-1 border-2 border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors">
+                                  <Upload size={20} className="text-slate-400" />
+                                  <span className="text-sm font-medium text-slate-600">Click to upload .csv file</span>
+                                  <span className="text-xs text-slate-400">Column should contain phone numbers</span>
+                                  <input type="file" accept=".csv" className="hidden" onChange={handleCustomerCSVImport} />
+                              </label>
+                          </div>
+                      </div>
+
+                      {/* Step 2: Copy Image */}
+                      {customerNumbers.length > 0 && (
+                          <div className="space-y-3 animate-in slide-in-from-top-4 fade-in duration-300">
+                              <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                  <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs">2</span>
+                                  Copy Image to Clipboard
+                              </label>
+                              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-start gap-3">
+                                  <AlertCircle size={20} className="text-orange-600 shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                      <p className="text-sm text-orange-800 mb-3">
+                                          WhatsApp Web does not allow auto-attaching images. You must copy the image here, click "Send" below, and then <span className="font-bold">Paste (Ctrl+V)</span> it into the chat manually.
+                                      </p>
+                                      <button 
+                                          onClick={copyImageForBulk}
+                                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${imageCopied ? 'bg-green-600 text-white' : 'bg-white border border-orange-200 text-orange-700 hover:bg-orange-100'}`}
+                                      >
+                                          {imageCopied ? <CheckSquare size={16}/> : <Copy size={16} />}
+                                          {imageCopied ? 'Image Copied!' : 'Copy Coupon Image'}
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Step 3: Send List */}
+                      {customerNumbers.length > 0 && (
+                          <div className="space-y-3 animate-in slide-in-from-top-4 fade-in duration-300">
+                              <div className="flex justify-between items-center">
+                                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                      <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-xs">3</span>
+                                      Send Messages ({customerNumbers.length})
+                                  </label>
+                                  <button onClick={() => setCustomerNumbers([])} className="text-xs text-red-500 hover:underline">Clear List</button>
+                              </div>
+                              
+                              <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden max-h-60 overflow-y-auto">
+                                  <table className="w-full text-left text-sm">
+                                      <thead className="bg-slate-100 text-slate-500 font-semibold border-b border-slate-200">
+                                          <tr>
+                                              <th className="p-3">Phone Number</th>
+                                              <th className="p-3 text-right">Action</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                          {customerNumbers.map((num, idx) => (
+                                              <tr key={idx} className="hover:bg-white transition-colors">
+                                                  <td className="p-3 font-mono text-slate-700">{num}</td>
+                                                  <td className="p-3 text-right">
+                                                      <a 
+                                                          href={`https://wa.me/${num}?text=${encodeURIComponent(getShareText(currentBulkCoupon))}`}
+                                                          target="_blank"
+                                                          rel="noreferrer"
+                                                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded text-xs font-bold transition-colors"
+                                                      >
+                                                          Open Chat <ExternalLink size={12} />
+                                                      </a>
+                                                  </td>
+                                              </tr>
+                                          ))}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
