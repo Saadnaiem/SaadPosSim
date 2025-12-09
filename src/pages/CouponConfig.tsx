@@ -1,6 +1,6 @@
-
 import React, { useState, useContext, useMemo } from 'react';
-import { StoreContext, Coupon, DiscountType, Item } from '../types';
+import { StoreContext } from '../types';
+import { Coupon, DiscountType, Item, StackingStrategy } from '../types';
 import BarcodeDisplay from '../components/BarcodeDisplay';
 import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2, Power, XSquare, AlertCircle } from 'lucide-react';
 
@@ -33,6 +33,7 @@ const CouponConfig: React.FC = () => {
     startDate: getToday(),
     endDate: '', // No end date by default
     isCombinable: false, // Default to not combined
+    stackingStrategy: 'SUM',
     vendorName: '',
     compensationType: 'VENDOR_CLAIM',
     partnershipVendorPercent: 50,
@@ -121,6 +122,7 @@ const CouponConfig: React.FC = () => {
           startDate: formData.startDate,
           endDate: formData.endDate,
           isCombinable: formData.isCombinable || false,
+          stackingStrategy: formData.isCombinable ? (formData.stackingStrategy || 'SUM') : undefined,
           active: true,
           redeemed: false,
           vendorName: formData.vendorName || 'Store Promotion',
@@ -150,6 +152,7 @@ const CouponConfig: React.FC = () => {
       startDate: getToday(),
       endDate: '',
       isCombinable: false,
+      stackingStrategy: 'SUM',
       vendorName: '',
       compensationType: 'VENDOR_CLAIM',
       partnershipVendorPercent: 50,
@@ -250,7 +253,7 @@ const CouponConfig: React.FC = () => {
   const downloadTemplate = () => {
     const headers = [
       'Code', 'Description', 'DiscountType', 'Value (% or $)', 'VendorName', 'CompensationType', 
-      'StartDate', 'EndDate', 'IsCombinable', 'MinPurchase', 'BuyQty', 'GetQty', 
+      'StartDate', 'EndDate', 'IsCombinable', 'StackingRule', 'MinPurchase', 'BuyQty', 'GetQty', 
       'ApplicableSKU', 'RequiredSKU', 'PartnershipVendor%', 'PartnershipMep%', 'UsageLimit'
     ];
     
@@ -260,21 +263,21 @@ const CouponConfig: React.FC = () => {
     // 1. VENDOR_CLAIM
     const row1 = [
       'PROMO_10', '10% Off Size 3', 'PERCENTAGE', '10', 'Huggies', 'VENDOR_CLAIM',
-      '2023-01-01', '2024-12-31', 'TRUE', '0', '1', '1',
+      '2023-01-01', '2024-12-31', 'TRUE', 'SUM', '0', '1', '1',
       '6180011596', '', '', '', 'SINGLE'
     ];
 
     // 2. MEP_CLAIM
     const row2 = [
       'SAVE_5', '$5 Off Total Order', 'FIXED_AMOUNT', '5', 'Store', 'MEP_CLAIM',
-      '2023-01-01', '2024-12-31', 'FALSE', '50', '1', '1',
+      '2023-01-01', '2024-12-31', 'FALSE', '', '50', '1', '1',
       '', '', '', '', 'MULTI'
     ];
 
     // 3. PARTNERSHIP
     const row3 = [
       'PARTNER_DEAL', 'Joint Promo 20% Off', 'PERCENTAGE', '20', 'Huggies', 'PARTNERSHIP',
-      '2023-01-01', '2024-12-31', 'FALSE', '0', '1', '1',
+      '2023-01-01', '2024-12-31', 'FALSE', '', '0', '1', '1',
       '6180011597', '', '60', '40', 'SINGLE'
     ];
 
@@ -327,12 +330,15 @@ const CouponConfig: React.FC = () => {
            }
 
            // Find Item IDs from Single SKUs in this row
-           const applicableSku = values[12] ? values[12].trim() : '';
-           const requiredSku = values[13] ? values[13].trim() : '';
+           const applicableSku = values[13] ? values[13].trim() : '';
+           const requiredSku = values[14] ? values[14].trim() : '';
            
            const applicableItem = applicableSku ? items.find(item => item.sku === applicableSku) : null;
            const requiredItem = requiredSku ? items.find(item => item.sku === requiredSku) : null;
            
+           const isCombinable = (values[8] || '').toUpperCase() === 'TRUE';
+           const stackingStrategy = (values[9] || 'SUM') as StackingStrategy;
+
            if (!couponMap[code]) {
                couponMap[code] = {
                    id: `${Date.now()}-${i}`,
@@ -344,13 +350,14 @@ const CouponConfig: React.FC = () => {
                    compensationType: values[5] || 'VENDOR_CLAIM',
                    startDate: values[6],
                    endDate: values[7],
-                   isCombinable: (values[8] || '').toUpperCase() === 'TRUE',
-                   minPurchaseAmount: parseFloat(values[9]) || 0,
-                   buyQuantity: parseFloat(values[10]) || 0,
-                   getQuantity: parseFloat(values[11]) || 0,
-                   partnershipVendorPercent: parseFloat(values[14]) || undefined,
-                   partnershipMepPercent: parseFloat(values[15]) || undefined,
-                   usageLimit: (values[16] as any) === 'MULTI' ? 'MULTI' : 'SINGLE',
+                   isCombinable: isCombinable,
+                   stackingStrategy: isCombinable ? stackingStrategy : undefined,
+                   minPurchaseAmount: parseFloat(values[10]) || 0,
+                   buyQuantity: parseFloat(values[11]) || 0,
+                   getQuantity: parseFloat(values[12]) || 0,
+                   partnershipVendorPercent: parseFloat(values[15]) || undefined,
+                   partnershipMepPercent: parseFloat(values[16]) || undefined,
+                   usageLimit: (values[17] as any) === 'MULTI' ? 'MULTI' : 'SINGLE',
                    active: true,
                    usageCount: 0,
                    redeemed: false,
@@ -916,7 +923,7 @@ const CouponConfig: React.FC = () => {
                          <option value="MULTI">Unlimited / Multi-Use</option>
                      </select>
                  </div>
-                 <div className="flex items-center gap-3 pt-6">
+                 <div className="flex flex-col gap-2 pt-4">
                      <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700">
                          <input 
                             type="checkbox" 
@@ -926,6 +933,21 @@ const CouponConfig: React.FC = () => {
                          />
                          Is Combinable?
                      </label>
+                     
+                     {formData.isCombinable && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                            <label className="block text-[10px] font-bold text-indigo-600 uppercase mb-1">Stacking Rule</label>
+                            <select 
+                                value={formData.stackingStrategy || 'SUM'} 
+                                onChange={e => setFormData({...formData, stackingStrategy: e.target.value as any})}
+                                className="w-full px-2 py-1.5 border border-indigo-200 rounded-lg text-xs bg-indigo-50 text-indigo-800 font-medium outline-none"
+                            >
+                                <option value="SUM">Sum / Accumulate Discounts</option>
+                                <option value="MAX">Use Largest Discount (Best Offer)</option>
+                                <option value="MIN">Use Smallest Discount (Worst Offer)</option>
+                            </select>
+                        </div>
+                     )}
                  </div>
             </div>
 
@@ -1077,7 +1099,7 @@ const CouponConfig: React.FC = () => {
                        </div>
                    ) : (
                        coupons.slice().reverse().map(coupon => (
-                           <div key={coupon.id} className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 relative group transition-colors hover:shadow-sm hover:bg-white hover:border-slate-300">
+                           <div key={coupon.id} className="border border-slate-200 rounded-lg p-6 pl-12 bg-slate-50/50 relative group transition-colors hover:shadow-sm hover:bg-white hover:border-slate-300">
                                
                                {/* Selection Checkbox */}
                                <div className="absolute top-4 left-4 z-10">
@@ -1092,34 +1114,42 @@ const CouponConfig: React.FC = () => {
                                    </button>
                                </div>
 
-                               <div className="flex flex-col xl:flex-row gap-6 items-center pl-8">
+                               <div className="flex flex-col xl:flex-row gap-6 items-start">
                                    {/* Live Barcode Render */}
-                                   <div className="shrink-0 flex flex-col items-center gap-2">
+                                   <div className="shrink-0 flex flex-col items-center gap-2 pt-2 mx-auto xl:mx-0">
                                        <BarcodeDisplay value={coupon.code} />
                                    </div>
                                    
                                    <div className="flex-1 space-y-2 w-full text-center xl:text-left">
-                                       <div className="flex justify-center xl:justify-between items-start">
-                                            <h3 className="font-bold text-slate-800 text-2xl tracking-tight">{coupon.code}</h3>
-                                            <div className="flex gap-2">
-                                                {/* Status Badges */}
-                                                {coupon.usageLimit === 'SINGLE' && coupon.redeemed ? (
-                                                     <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-red-100 text-red-700 border border-red-200">
-                                                        Redeemed
+                                       <div className="flex flex-col xl:flex-row xl:justify-between items-center xl:items-start gap-4">
+                                            <div>
+                                                <h3 className="font-bold text-slate-800 text-2xl tracking-tight">{coupon.code}</h3>
+                                                <div className="flex gap-2 justify-center xl:justify-start mt-1">
+                                                    {/* Status Badges */}
+                                                    {coupon.usageLimit === 'SINGLE' && coupon.redeemed ? (
+                                                         <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-red-100 text-red-700 border border-red-200">
+                                                            Redeemed
+                                                        </span>
+                                                    ) : !coupon.active ? (
+                                                        <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-slate-200 text-slate-600 border border-slate-300">
+                                                            Inactive
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-green-100 text-green-700 border border-green-200">
+                                                            Active
+                                                        </span>
+                                                    )}
+                                                    
+                                                    <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-blue-100 text-blue-700">
+                                                        {coupon.usageLimit}
                                                     </span>
-                                                ) : !coupon.active ? (
-                                                    <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-slate-200 text-slate-600 border border-slate-300">
-                                                        Inactive
-                                                    </span>
-                                                ) : (
-                                                    <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-green-100 text-green-700 border border-green-200">
-                                                        Active
-                                                    </span>
-                                                )}
-                                                
-                                                <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-blue-100 text-blue-700">
-                                                    {coupon.usageLimit}
-                                                </span>
+                                                    
+                                                    {coupon.isCombinable && (
+                                                        <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-indigo-100 text-indigo-700">
+                                                            Stack: {coupon.stackingStrategy || 'SUM'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                        </div>
                                        <p className="text-slate-600 font-medium text-lg">{coupon.description}</p>
@@ -1149,7 +1179,7 @@ const CouponConfig: React.FC = () => {
                                        </div>
                                        
                                        {/* Action Buttons */}
-                                       <div className="flex gap-3 mt-4 justify-center xl:justify-start">
+                                       <div className="flex gap-3 mt-4 justify-center xl:justify-start flex-wrap">
                                             <button 
                                                 onClick={() => downloadCoupon(coupon)}
                                                 className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-green-600 transition-colors"
@@ -1176,25 +1206,26 @@ const CouponConfig: React.FC = () => {
                                             </button>
                                        </div>
                                    </div>
-                               </div>
-                               
-                               <div className="absolute top-4 right-4 flex flex-col gap-2">
-                                    <button 
-                                        onClick={() => toggleActive(coupon.id)}
-                                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold transition-colors border ${coupon.active ? 'bg-green-50 text-green-600 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-green-50 hover:text-green-600'}`}
-                                        title={coupon.active ? "Click to Deactivate" : "Click to Activate"}
-                                    >
-                                        <Power size={14} />
-                                        {coupon.active ? 'Deactivate' : 'Activate'}
-                                    </button>
-                                    <button 
-                                        onClick={() => handleDelete(coupon.id)}
-                                        className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold text-slate-400 border border-transparent hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-colors"
-                                        title="Delete Coupon"
-                                    >
-                                        <Trash2 size={14} />
-                                        Delete
-                                    </button>
+
+                                   {/* Management Buttons - Moved to Flex Item */}
+                                   <div className="flex flex-row xl:flex-col gap-2 justify-center xl:justify-end shrink-0 w-full xl:w-auto mt-4 xl:mt-0">
+                                        <button 
+                                            onClick={() => toggleActive(coupon.id)}
+                                            className={`flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${coupon.active ? 'bg-green-50 text-green-600 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-green-50 hover:text-green-600'}`}
+                                            title={coupon.active ? "Click to Deactivate" : "Click to Activate"}
+                                        >
+                                            <Power size={14} />
+                                            {coupon.active ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDelete(coupon.id)}
+                                            className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 border border-slate-200 hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                            title="Delete Coupon"
+                                        >
+                                            <Trash2 size={14} />
+                                            Delete
+                                        </button>
+                                   </div>
                                </div>
                            </div>
                        ))

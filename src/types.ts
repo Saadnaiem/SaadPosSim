@@ -18,6 +18,8 @@ export enum DiscountType {
   BUNDLE_FIXED = 'BUNDLE_FIXED', // Buy Required Items, Get Applicable Items at $ off
 }
 
+export type StackingStrategy = 'SUM' | 'MAX' | 'MIN';
+
 export interface Coupon {
   id: string;
   code: string;
@@ -32,6 +34,7 @@ export interface Coupon {
   active: boolean;
   redeemed?: boolean; 
   isCombinable: boolean;
+  stackingStrategy?: StackingStrategy; // Rule for combining: Sum, Max (Best), or Min (Worst)
   usageLimit: 'SINGLE' | 'MULTI'; // New field: Single use vs Unlimited use
   usageCount: number; // Track number of times used
 
@@ -70,6 +73,8 @@ export interface Transaction {
     value: number;
     discountType: DiscountType;
     applicableItemIds?: string[];
+    isCombinable?: boolean;
+    stackingStrategy?: StackingStrategy;
   };
   paymentMethod: 'CASH' | 'CARD';
   pharmacistId?: string;

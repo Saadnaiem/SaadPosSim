@@ -254,7 +254,9 @@ const POS: React.FC = () => {
           compensationType: appliedCoupon.compensationType,
           value: appliedCoupon.value,
           discountType: appliedCoupon.discountType,
-          applicableItemIds: appliedCoupon.applicableItemIds
+          applicableItemIds: appliedCoupon.applicableItemIds,
+          isCombinable: appliedCoupon.isCombinable,
+          stackingStrategy: appliedCoupon.stackingStrategy
       } : undefined
     };
 
