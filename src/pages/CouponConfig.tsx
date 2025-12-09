@@ -1017,9 +1017,17 @@ const CouponConfig: React.FC = () => {
                                        <div className="flex justify-center xl:justify-between items-start">
                                             <h3 className="font-bold text-slate-800 text-2xl tracking-tight">{coupon.code}</h3>
                                             <div className="flex gap-2">
-                                                <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${coupon.active ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}`}>
-                                                    {coupon.active ? 'Active' : 'Inactive'}
-                                                </span>
+                                                {/* Status Badges */}
+                                                {coupon.usageLimit === 'SINGLE' && coupon.redeemed ? (
+                                                     <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-orange-100 text-orange-700 border border-orange-200">
+                                                        Redeemed
+                                                    </span>
+                                                ) : (
+                                                    <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${coupon.active ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}`}>
+                                                        {coupon.active ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                )}
+                                                
                                                 <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-blue-100 text-blue-700">
                                                     {coupon.usageLimit}
                                                 </span>
