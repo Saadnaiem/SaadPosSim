@@ -235,9 +235,15 @@ const CouponConfig: React.FC = () => {
     }
   };
 
-  const handleDeactivateAll = () => {
-      if(window.confirm('Are you sure you want to DEACTIVATE all coupons?')) {
-          setCoupons(prev => prev.map(c => ({...c, active: false})));
+  // Check if all coupons are currently inactive
+  const areAllInactive = coupons.length > 0 && coupons.every(c => !c.active);
+
+  const handleToggleAllStatus = () => {
+      const action = areAllInactive ? 'ACTIVATE' : 'DEACTIVATE';
+      const targetState = areAllInactive ? true : false;
+      
+      if(window.confirm(`Are you sure you want to ${action} all coupons?`)) {
+          setCoupons(prev => prev.map(c => ({...c, active: targetState})));
       }
   };
 
@@ -1076,10 +1082,10 @@ const CouponConfig: React.FC = () => {
                                 </button>
                             ) : (
                                 <button 
-                                    onClick={handleDeactivateAll}
-                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-orange-600 bg-orange-100 hover:bg-orange-200 rounded transition-colors"
+                                    onClick={handleToggleAllStatus}
+                                    className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded transition-colors ${areAllInactive ? 'text-green-600 bg-green-100 hover:bg-green-200' : 'text-orange-600 bg-orange-100 hover:bg-orange-200'}`}
                                 >
-                                    <Power size={14}/> Deactivate All
+                                    <Power size={14}/> {areAllInactive ? 'Activate All' : 'Deactivate All'}
                                 </button>
                             )}
 
@@ -1155,7 +1161,7 @@ const CouponConfig: React.FC = () => {
                                        <p className="text-slate-600 font-medium text-lg">{coupon.description}</p>
                                        
                                        {/* Enhanced Details Section - BOLD AND RED FONT */}
-                                       <div className="flex flex-col sm:flex-row gap-4 mt-4 justify-center xl:justify-start text-sm border-t pt-3 border-slate-100">
+                                       <div className="flex flex-col sm:flex-row flex-wrap gap-4 mt-4 justify-center xl:justify-start text-sm border-t pt-3 border-slate-100">
                                            <div className="flex items-center gap-2">
                                                <span className="text-slate-500 font-medium">Discount:</span>
                                                <span className="text-red-600 font-extrabold text-base">
@@ -1174,6 +1180,23 @@ const CouponConfig: React.FC = () => {
                                                <span className="text-slate-500 font-medium">Used:</span>
                                                <span className="text-red-600 font-extrabold">
                                                     {coupon.usageCount || 0} times
+                                               </span>
+                                           </div>
+
+                                           {/* New Fields */}
+                                           <div className="hidden sm:block w-px bg-slate-300 h-4 self-center"></div>
+                                           <div className="flex items-center gap-2">
+                                               <span className="text-slate-500 font-medium">Vendor:</span>
+                                               <span className="text-slate-800 font-bold">
+                                                    {coupon.vendorName}
+                                               </span>
+                                           </div>
+
+                                           <div className="hidden sm:block w-px bg-slate-300 h-4 self-center"></div>
+                                           <div className="flex items-center gap-2">
+                                               <span className="text-slate-500 font-medium">Linked:</span>
+                                               <span className="text-slate-800 font-bold">
+                                                    {coupon.applicableItemIds.length === 0 ? 'All Items' : `${coupon.applicableItemIds.length} Items`}
                                                </span>
                                            </div>
                                        </div>
