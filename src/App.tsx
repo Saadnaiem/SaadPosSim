@@ -6,7 +6,7 @@ import Inventory from './pages/Inventory';
 import CouponConfig from './pages/CouponConfig';
 import Reports from './pages/Reports';
 import Help from './pages/Help';
-import { Item, Coupon, Transaction, StoreContextType, StoreContext } from './types';
+import { Item, Coupon, Transaction, StoreContext } from './types';
 import { INITIAL_ITEMS, INITIAL_COUPONS } from './constants';
 
 const App: React.FC = () => {

@@ -1,8 +1,8 @@
+
 import React, { useState, useContext, useMemo } from 'react';
-import { StoreContext } from '../types';
-import { Coupon, DiscountType, Item } from '../types';
+import { StoreContext, Coupon, DiscountType, Item } from '../types';
 import BarcodeDisplay from '../components/BarcodeDisplay';
-import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2 } from 'lucide-react';
+import { Plus, Trash2, CheckSquare, Square, Calendar, Layers, ShoppingBag, Shuffle, Download, Mail, MessageSquare, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Search, Share2, Power, XSquare, AlertCircle } from 'lucide-react';
 
 const CouponConfig: React.FC = () => {
   const { coupons, setCoupons, items } = useContext(StoreContext);
@@ -13,6 +13,9 @@ const CouponConfig: React.FC = () => {
   // Search states for item lists
   const [searchApplicable, setSearchApplicable] = useState('');
   const [searchRequired, setSearchRequired] = useState('');
+
+  // Selection state for bulk actions
+  const [selectedCoupons, setSelectedCoupons] = useState<string[]>([]);
 
   // State for expanded brands in item selection
   const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
@@ -204,6 +207,42 @@ const CouponConfig: React.FC = () => {
 
   const handleDelete = (id: string) => {
     setCoupons(prev => prev.filter(c => c.id !== id));
+    setSelectedCoupons(prev => prev.filter(cid => cid !== id));
+  };
+
+  const toggleActive = (id: string) => {
+    setCoupons(prev => prev.map(c => 
+      c.id === id ? { ...c, active: !c.active } : c
+    ));
+  };
+
+  // --- Bulk Actions ---
+
+  const toggleSelection = (id: string) => {
+    setSelectedCoupons(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCoupons.length === coupons.length) {
+        setSelectedCoupons([]);
+    } else {
+        setSelectedCoupons(coupons.map(c => c.id));
+    }
+  };
+
+  const handleDeactivateAll = () => {
+      if(window.confirm('Are you sure you want to DEACTIVATE all coupons?')) {
+          setCoupons(prev => prev.map(c => ({...c, active: false})));
+      }
+  };
+
+  const handleDeactivateSelected = () => {
+      if(window.confirm(`Deactivate ${selectedCoupons.length} selected coupons?`)) {
+          setCoupons(prev => prev.map(c => selectedCoupons.includes(c.id) ? ({...c, active: false}) : c));
+          setSelectedCoupons([]);
+      }
   };
 
   // --- CSV Import / Template Logic ---
@@ -990,12 +1029,44 @@ const CouponConfig: React.FC = () => {
         {/* List & Details */}
         <div className="lg:col-span-2">
            <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
-               <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+               <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                    <div>
                        <h2 className="font-bold text-slate-800 text-lg">Active Coupons</h2>
                        <p className="text-slate-500 text-sm">{coupons.length} coupons configured</p>
                    </div>
-                   <button onClick={() => setCoupons([])} className="text-xs text-red-500 hover:underline">Clear All</button>
+                   <div className="flex flex-wrap gap-2">
+                       {coupons.length > 0 && (
+                           <>
+                            <button 
+                                onClick={toggleSelectAll}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded transition-colors"
+                            >
+                                {selectedCoupons.length === coupons.length && coupons.length > 0 ? <CheckSquare size={14}/> : <Square size={14}/>}
+                                {selectedCoupons.length === coupons.length ? 'Deselect All' : 'Select All'}
+                            </button>
+                            
+                            {selectedCoupons.length > 0 ? (
+                                <button 
+                                    onClick={handleDeactivateSelected}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded transition-colors shadow-sm"
+                                >
+                                    <Power size={14}/> Deactivate ({selectedCoupons.length})
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={handleDeactivateAll}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-orange-600 bg-orange-100 hover:bg-orange-200 rounded transition-colors"
+                                >
+                                    <Power size={14}/> Deactivate All
+                                </button>
+                            )}
+
+                            <button onClick={() => setCoupons([])} className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-100 hover:bg-red-200 rounded transition-colors flex items-center gap-1">
+                                <Trash2 size={14} /> Delete All
+                            </button>
+                           </>
+                       )}
+                   </div>
                </div>
                
                <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[1200px]">
@@ -1006,8 +1077,22 @@ const CouponConfig: React.FC = () => {
                        </div>
                    ) : (
                        coupons.slice().reverse().map(coupon => (
-                           <div key={coupon.id} className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 relative group">
-                               <div className="flex flex-col xl:flex-row gap-6 items-center">
+                           <div key={coupon.id} className="border border-slate-200 rounded-lg p-6 bg-slate-50/50 relative group transition-colors hover:shadow-sm hover:bg-white hover:border-slate-300">
+                               
+                               {/* Selection Checkbox */}
+                               <div className="absolute top-4 left-4 z-10">
+                                   <button 
+                                    onClick={() => toggleSelection(coupon.id)}
+                                    className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                   >
+                                       {selectedCoupons.includes(coupon.id) ? 
+                                        <CheckSquare size={20} className="text-indigo-600 fill-indigo-50" /> : 
+                                        <Square size={20} />
+                                       }
+                                   </button>
+                               </div>
+
+                               <div className="flex flex-col xl:flex-row gap-6 items-center pl-8">
                                    {/* Live Barcode Render */}
                                    <div className="shrink-0 flex flex-col items-center gap-2">
                                        <BarcodeDisplay value={coupon.code} />
@@ -1019,12 +1104,16 @@ const CouponConfig: React.FC = () => {
                                             <div className="flex gap-2">
                                                 {/* Status Badges */}
                                                 {coupon.usageLimit === 'SINGLE' && coupon.redeemed ? (
-                                                     <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-orange-100 text-orange-700 border border-orange-200">
+                                                     <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-red-100 text-red-700 border border-red-200">
                                                         Redeemed
                                                     </span>
+                                                ) : !coupon.active ? (
+                                                    <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-slate-200 text-slate-600 border border-slate-300">
+                                                        Inactive
+                                                    </span>
                                                 ) : (
-                                                    <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${coupon.active ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}`}>
-                                                        {coupon.active ? 'Active' : 'Inactive'}
+                                                    <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-green-100 text-green-700 border border-green-200">
+                                                        Active
                                                     </span>
                                                 )}
                                                 
@@ -1035,19 +1124,28 @@ const CouponConfig: React.FC = () => {
                                        </div>
                                        <p className="text-slate-600 font-medium text-lg">{coupon.description}</p>
                                        
-                                       <div className="flex flex-wrap gap-2 text-xs text-slate-500 mt-2 justify-center xl:justify-start">
-                                           <span className="bg-white border border-slate-200 px-2 py-1 rounded">
-                                               {coupon.discountType}: 
-                                               <span className="font-bold text-slate-700 ml-1">
-                                                   {coupon.value}
+                                       {/* Enhanced Details Section - BOLD AND RED FONT */}
+                                       <div className="flex flex-col sm:flex-row gap-4 mt-4 justify-center xl:justify-start text-sm border-t pt-3 border-slate-100">
+                                           <div className="flex items-center gap-2">
+                                               <span className="text-slate-500 font-medium">Discount:</span>
+                                               <span className="text-red-600 font-extrabold text-base">
+                                                   {coupon.discountType === DiscountType.BOGO ? 'BOGO' : coupon.discountType === DiscountType.PERCENTAGE ? `${coupon.value}%` : `$${coupon.value}`}
                                                </span>
-                                           </span>
-                                           <span className="bg-white border border-slate-200 px-2 py-1 rounded">
-                                               Valid: {coupon.startDate} - {coupon.endDate}
-                                           </span>
-                                            <span className="bg-white border border-slate-200 px-2 py-1 rounded">
-                                               Used: {coupon.usageCount || 0} times
-                                           </span>
+                                           </div>
+                                           <div className="hidden sm:block w-px bg-slate-300 h-4 self-center"></div>
+                                           <div className="flex items-center gap-2">
+                                               <span className="text-slate-500 font-medium">Valid:</span>
+                                               <span className="text-red-600 font-extrabold">
+                                                    {coupon.startDate || 'Now'} <span className="text-slate-400 font-normal px-1">to</span> {coupon.endDate || 'Forever'}
+                                               </span>
+                                           </div>
+                                            <div className="hidden sm:block w-px bg-slate-300 h-4 self-center"></div>
+                                           <div className="flex items-center gap-2">
+                                               <span className="text-slate-500 font-medium">Used:</span>
+                                               <span className="text-red-600 font-extrabold">
+                                                    {coupon.usageCount || 0} times
+                                               </span>
+                                           </div>
                                        </div>
                                        
                                        {/* Action Buttons */}
@@ -1080,13 +1178,24 @@ const CouponConfig: React.FC = () => {
                                    </div>
                                </div>
                                
-                               <button 
-                                  onClick={() => handleDelete(coupon.id)}
-                                  className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                  title="Delete Coupon"
-                               >
-                                   <Trash2 size={18} />
-                               </button>
+                               <div className="absolute top-4 right-4 flex flex-col gap-2">
+                                    <button 
+                                        onClick={() => toggleActive(coupon.id)}
+                                        className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold transition-colors border ${coupon.active ? 'bg-green-50 text-green-600 border-green-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-green-50 hover:text-green-600'}`}
+                                        title={coupon.active ? "Click to Deactivate" : "Click to Activate"}
+                                    >
+                                        <Power size={14} />
+                                        {coupon.active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(coupon.id)}
+                                        className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold text-slate-400 border border-transparent hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                        title="Delete Coupon"
+                                    >
+                                        <Trash2 size={14} />
+                                        Delete
+                                    </button>
+                               </div>
                            </div>
                        ))
                    )}
